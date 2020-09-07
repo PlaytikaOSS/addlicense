@@ -213,22 +213,20 @@ func licenseHeader(path string, tmpl *template.Template, data *copyrightData) ([
 	switch fileExtension(path) {
 	default:
 		return nil, nil
-	case ".c", ".h", ".gv":
+	case ".c", ".h", ".java":
 		lic, err = prefix(tmpl, data, "/*", " * ", " */")
-	case ".js", ".mjs", ".cjs", ".jsx", ".tsx", ".css", ".scss", ".sass", ".tf", ".ts":
+	case ".tf":
 		lic, err = prefix(tmpl, data, "/**", " * ", " */")
-	case ".cc", ".cpp", ".cs", ".go", ".hh", ".hpp", ".java", ".m", ".mm", ".proto", ".rs", ".scala", ".swift", ".dart", ".groovy", ".kt", ".kts", ".v", ".sv":
+	case ".cc", ".cpp", ".cs", ".go", ".hh", ".hpp", ".m", ".mm", ".proto", ".rs", ".scala", ".swift", ".dart", ".groovy", ".kt", ".kts":
 		lic, err = prefix(tmpl, data, "", "// ", "")
-	case ".py", ".sh", ".yaml", ".yml", ".dockerfile", "dockerfile", ".rb", "gemfile", ".tcl", ".bzl":
+	case ".py", ".sh", ".yaml", ".yml", ".dockerfile", "dockerfile", ".rb", "gemfile":
 		lic, err = prefix(tmpl, data, "", "# ", "")
 	case ".el", ".lisp":
 		lic, err = prefix(tmpl, data, "", ";; ", "")
 	case ".erl":
 		lic, err = prefix(tmpl, data, "", "% ", "")
-	case ".hs", ".sql", ".sdl":
+	case ".hs":
 		lic, err = prefix(tmpl, data, "", "-- ", "")
-	case ".html", ".xml", ".vue":
-		lic, err = prefix(tmpl, data, "<!--", " ", "-->")
 	case ".php":
 		lic, err = prefix(tmpl, data, "", "// ", "")
 	case ".ml", ".mli", ".mll", ".mly":
