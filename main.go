@@ -26,7 +26,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -111,12 +110,12 @@ func main() {
 						return nil
 					}
 					// Check if file has a license
-					hasLicense, err := fileHasLicense(f.path)
+					isMissingLicenseHeader, err := fileHasLicense(f.path)
 					if err != nil {
 						log.Printf("%s: %v", f.path, err)
 						return err
 					}
-					if !hasLicense {
+					if isMissingLicenseHeader {
 						fmt.Printf("%s\n", f.path)
 						return errors.New("missing license header")
 					}
@@ -166,9 +165,6 @@ func walk(ch chan<- *file, start string) {
 	})
 }
 
-// addLicense add a license to the file if missing.
-//
-// It returns true if the file was updated.
 func addLicense(path string, fmode os.FileMode, tmpl *template.Template, data *copyrightData) (bool, error) {
 	var lic []byte
 	var err error
@@ -178,10 +174,7 @@ func addLicense(path string, fmode os.FileMode, tmpl *template.Template, data *c
 	}
 
 	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return false, err
-	}
-	if hasLicense(b) || isGenerated(b) {
+	if err != nil || hasLicense(b) {
 		return false, err
 	}
 
@@ -200,11 +193,10 @@ func addLicense(path string, fmode os.FileMode, tmpl *template.Template, data *c
 // fileHasLicense reports whether the file at path contains a license header.
 func fileHasLicense(path string) (bool, error) {
 	b, err := ioutil.ReadFile(path)
-	if err != nil {
+	if err != nil || hasLicense(b) {
 		return false, err
 	}
-	// If generated, we count it as if it has a license.
-	return hasLicense(b) || isGenerated(b), nil
+	return true, nil
 }
 
 func licenseHeader(path string, tmpl *template.Template, data *copyrightData) ([]byte, error) {
@@ -213,22 +205,20 @@ func licenseHeader(path string, tmpl *template.Template, data *copyrightData) ([
 	switch fileExtension(path) {
 	default:
 		return nil, nil
-	case ".c", ".h", ".gv":
+	case ".c", ".h", ".java":
 		lic, err = prefix(tmpl, data, "/*", " * ", " */")
-	case ".js", ".mjs", ".cjs", ".jsx", ".tsx", ".css", ".scss", ".sass", ".tf", ".ts":
+	case ".tf":
 		lic, err = prefix(tmpl, data, "/**", " * ", " */")
-	case ".cc", ".cpp", ".cs", ".go", ".hh", ".hpp", ".java", ".m", ".mm", ".proto", ".rs", ".scala", ".swift", ".dart", ".groovy", ".kt", ".kts", ".v", ".sv":
+	case ".cc", ".cpp", ".cs", ".go", ".hh", ".hpp", ".m", ".mm", ".proto", ".rs", ".scala", ".swift", ".dart", ".groovy", ".kt", ".kts":
 		lic, err = prefix(tmpl, data, "", "// ", "")
-	case ".py", ".sh", ".yaml", ".yml", ".dockerfile", "dockerfile", ".rb", "gemfile", ".tcl", ".bzl":
+	case ".py", ".sh", ".yaml", ".yml", ".dockerfile", "dockerfile", ".rb", "gemfile":
 		lic, err = prefix(tmpl, data, "", "# ", "")
 	case ".el", ".lisp":
 		lic, err = prefix(tmpl, data, "", ";; ", "")
 	case ".erl":
 		lic, err = prefix(tmpl, data, "", "% ", "")
-	case ".hs", ".sql", ".sdl":
+	case ".hs":
 		lic, err = prefix(tmpl, data, "", "-- ", "")
-	case ".html", ".xml", ".vue":
-		lic, err = prefix(tmpl, data, "<!--", " ", "-->")
 	case ".php":
 		lic, err = prefix(tmpl, data, "", "// ", "")
 	case ".ml", ".mli", ".mll", ".mly":
@@ -268,17 +258,6 @@ func hashBang(b []byte) []byte {
 		}
 	}
 	return nil
-}
-
-// go generate: ^// Code generated .* DO NOT EDIT\.$
-var goGenerated = regexp.MustCompile(`(?m)^.{1,2} Code generated .* DO NOT EDIT\.$`)
-// cargo raze: ^DO NOT EDIT! Replaced on runs of cargo-raze$
-var cargoRazeGenerated = regexp.MustCompile(`(?m)^DO NOT EDIT! Replaced on runs of cargo-raze$`)
-
-// isGenerated returns true if it contains a string that implies the file was
-// generated.
-func isGenerated(b []byte) bool {
-	return goGenerated.Match(b) || cargoRazeGenerated.Match(b)
 }
 
 func hasLicense(b []byte) bool {
