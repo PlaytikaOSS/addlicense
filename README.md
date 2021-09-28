@@ -6,6 +6,8 @@ by scanning directory patterns recursively.
 It modifies all source files in place and avoids adding a license header
 to any file that already has one.
 
+addlicense requires go 1.16 or later.
+
 ## install
 
     go get -u github.com/google/addlicense
@@ -19,26 +21,40 @@ to any file that already has one.
     -l license type: apache, bsd, mit, mpl (defaults to "apache")
     -y year (defaults to current year)
     -check check only mode: verify presence of license headers and exit with non-zero code if missing
+    -ignore file patterns to ignore, for example: -ignore **/*.go -ignore vendor/**
 
 The pattern argument can be provided multiple times, and may also refer
 to single files.
 
+The `-ignore` flag can use any pattern [supported by
+doublestar](https://github.com/bmatcuk/doublestar#patterns).
+
 ## Running in a Docker Container
 
-- Clone the repository using `git clone https://github.com/google/addlicense.git`
-- Build your docker container
+The simplest way to get the addlicense docker image is to pull from GitHub
+Container Registry:
+
 ```bash
-docker build -t google/addlicense .
+docker pull ghcr.io/google/addlicense:latest
 ```
 
-- Test the image
+Alternately, you can build it from source yourself:
+
 ```bash
-docker run -it google/addlicense -h
+docker build -t ghcr.io/google/addlicense .
 ```
 
-- Usage example
+Once you have the image, you can test that it works by running:
+
 ```bash
-docker run -v ${PWD}:/go/src/app/ -it google/addlicense -c "Google LLC" *.go
+docker run -it ghcr.io/google/addlicense -h
+```
+
+Finally, to run it, mount the directory you want to scan to `/src` and pass the
+appropriate addlicense flags:
+
+```bash
+docker run -it ghcr.io/google/addlicense -v ${PWD}:/src -c "Google LLC" *.go
 ```
 
 ## license
