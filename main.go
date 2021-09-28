@@ -246,7 +246,10 @@ func addLicense(path string, fmode os.FileMode, tmpl *template.Template, data li
 	if err != nil || lic == nil {
 		return false, err
 	}
-
+	isEmpty, err := IsFileEmpty(path)
+    if err != nil || isEmpty == true {
+        return false, err
+    }
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return false, err
@@ -363,3 +366,14 @@ func hasLicense(b []byte) bool {
 		bytes.Contains(bytes.ToLower(b[:n]), []byte("mozilla public")) ||
 		bytes.Contains(bytes.ToLower(b[:n]), []byte("spdx-license-identifier"))
 }
+
+ func IsFileEmpty(path string) (bool, error) {
+         fi, err := os.Stat(path)
+         if err != nil {
+                 return true, err
+         }
+         if fi.Size() == 0 {
+                 return true, nil
+         }
+         return false, err
+ }
