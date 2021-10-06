@@ -32,6 +32,7 @@ import (
 
 	doublestar "github.com/bmatcuk/doublestar/v4"
 	"golang.org/x/sync/errgroup"
+	"github.com/dimchansky/utfbom"
 )
 
 const helpText = `Usage: addlicense [flags] pattern [pattern ...]
@@ -257,7 +258,9 @@ func addLicense(path string, fmode os.FileMode, tmpl *template.Template, data li
 	if hasLicense(b) || isGenerated(b) {
 		return false, err
 	}
-
+	if hasBom(b) {
+		return false, err
+	}
 	line := hashBang(b)
 	if len(line) > 0 {
 		b = b[len(line):]
@@ -377,3 +380,15 @@ func hasLicense(b []byte) bool {
          }
          return false, err
  }
+
+ func hasBom(b []byte) bool {
+        sr, enc := utfbom.Skip(bytes.NewReader(b))
+        fmt.Printf("Detected encoding: %s\n", enc)
+        output, err = ioutil.ReadAll(sr)
+        if err != nil {
+            fmt.Println(err)
+            return false
+        }
+        fmt.Println("File with BOM and will skip", output)
+        return true
+}
