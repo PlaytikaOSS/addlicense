@@ -34,7 +34,14 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const helpText = `Usage: addlicense [flags] pattern [pattern ...]
+const (
+	Unknown = "Unknown"
+	UTF8 = "UTF8"
+	UTF16LE = "UTF16LE"
+	UTF16BE = "UTF16BE"
+	UTF32LE = "UTF32LE"
+	UTF32BE = "UTF32BE"
+    helpText = `Usage: addlicense [flags] pattern [pattern ...]
 
 The program ensures source code files have copyright license headers
 by scanning directory patterns recursively.
@@ -47,17 +54,27 @@ to single files.
 
 Flags:
 `
+)
 
 var (
 	skipExtensionFlags stringSlice
 	ignorePatterns     stringSlice
 	spdx               spdxFlag
 
+// BOM Headers to detect
+// The information is from: http://www.unicode.org/faq/utf_bom.html#BOM
+    UTF8Bom    = []byte{0xEF, 0xBB, 0xBF}
+    UTF16LEBom = []byte{0xFF, 0xFE}
+    UTF16BEBom = []byte{0xFE, 0xFF}
+    UTF32LEBom = []byte{0xFF, 0xFE, 0x00, 0x00}
+    UTF32BEBom = []byte{0x00, 0x00, 0xFE, 0xFF}
+
 	holder    = flag.String("c", "Google LLC", "copyright holder")
 	license   = flag.String("l", "apache", "license type: apache, bsd, mit, mpl")
 	licensef  = flag.String("f", "", "license file")
 	year      = flag.String("y", fmt.Sprint(time.Now().Year()), "copyright year(s)")
 	verbose   = flag.Bool("v", false, "verbose mode: print the name of the files that are modified")
+	bom       = flag.Bool("b", false, "show bom mode: print the name of the files that are with BOM")
 	checkonly = flag.Bool("check", false, "check only mode: verify presence of license headers and exit with non-zero code if missing")
 )
 
@@ -242,13 +259,24 @@ func fileMatches(path string, patterns []string) bool {
 func addLicense(path string, fmode os.FileMode, tmpl *template.Template, data licenseData) (bool, error) {
 	var lic []byte
 	var err error
-	lic, err = licenseHeader(path, tmpl, data)
-	if err != nil || lic == nil {
-		return false, err
-	}
-	isEmpty, err := IsFileEmpty(path)
+    lic, err = licenseHeader(path, tmpl, data)
+    if err != nil || lic == nil {
+        return false, err
+    }
+    isEmpty, err := IsFileEmpty(path)
     if err != nil || isEmpty == true {
         return false, err
+    }
+    d, err := ioutil.ReadFile(path)
+    if err != nil {
+            return false, err
+    }
+    isBom, enc := DetectBOM(d)
+    if *bom && isBom {
+        log.Printf("%s with encoding %v", path, enc )
+    }
+    if isBom {
+       return false, err
     }
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -257,7 +285,6 @@ func addLicense(path string, fmode os.FileMode, tmpl *template.Template, data li
 	if hasLicense(b) || isGenerated(b) {
 		return false, err
 	}
-
 	line := hashBang(b)
 	if len(line) > 0 {
 		b = b[len(line):]
@@ -376,4 +403,24 @@ func hasLicense(b []byte) bool {
                  return true, nil
          }
          return false, err
+ }
+
+ func DetectBOM(buffer []byte) (bool, string) {
+ 	if len(buffer) < 5 {
+ 		return false, Unknown
+ 	}
+
+ 	if bytes.HasPrefix(buffer, UTF16LEBom) {
+ 		return true, UTF16LE
+ 	} else if bytes.HasPrefix(buffer, UTF16BEBom) {
+ 		return true, UTF16BE
+ 	} else if bytes.HasPrefix(buffer, UTF8Bom) {
+ 		return true, UTF8
+ 	} else if bytes.HasPrefix(buffer, UTF32LEBom) {
+ 		return true, UTF32LE
+ 	} else if bytes.HasPrefix(buffer, UTF32BEBom) {
+ 		return true, UTF32BE
+ 	}
+
+ 	return false, Unknown
  }
